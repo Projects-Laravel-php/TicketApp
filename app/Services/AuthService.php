@@ -57,7 +57,10 @@ class AuthService
     public function logout($user)
     {
         if ($user) {
-            $user->currentAccessToken()->delete();
+            // Revoke all tokens for the user to ensure logout works outside HTTP request context
+            if (method_exists($user, 'tokens')) {
+                $user->tokens()->delete();
+            }
             return true;
         }
 

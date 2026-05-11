@@ -23,4 +23,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('/devices/assign', [DeviceController::class, 'assign']);
         Route::get('/devices', [DeviceController::class, 'index']);
     });
+
+    // Debug/test route (only active when APP_DEBUG=true)
+    Route::post('/debug/notify', [App\Http\Controllers\Api\DebugController::class, 'notifyTest']);
 });

@@ -153,6 +153,28 @@ php artisan test
 
 Para validar que las notificaciones a Discord y la integración con Sentry funcionan, establecer las variables en el entorno y provocar un error controlado (o revisar los logs de error) según la documentación interna.
 
+**Probar notificaciones (rápido)**
+
+Si `APP_DEBUG=true` puede enviar un test a Discord/Sentry con el endpoint de test:
+
+```bash
+curl -X POST http://localhost:8000/api/debug/notify \
+	-H "Content-Type: application/json" \
+	-d '{"message":"Prueba de notificación desde local"}'
+```
+
+La respuesta indicará si el envío a Discord y Sentry se intentó correctamente. Asegúrese de tener `DISCORD_WEBHOOK_URL` y `SENTRY_LARAVEL_DSN` configurados en `.env`.
+
+**Comando Artisan para ejecutar el flujo de integración**
+
+He incluido un comando Artisan que ejecuta localmente el flujo completo y puede usarse cuando el entorno tiene soporte de base de datos o dentro de Docker.
+
+```bash
+php artisan run:integration-flow
+```
+
+El comando intentará: registrar un usuario, crear un dispositivo, crear un ticket, asignar el dispositivo, revocar el token y enviar una notificación de prueba a Discord/Sentry. Si el entorno no tiene el driver de base de datos (por ejemplo `pdo_sqlite`) o Docker no está disponible, el comando fallará con un mensaje que describe la razón.
+
 ---
 
 **Postman / Colección**
