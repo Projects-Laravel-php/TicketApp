@@ -12,6 +12,8 @@ Route::middleware('throttle:api')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
 
+        Route::post('/logout', [AuthController::class, 'logout']);
+
         Route::get('/tickets', [TicketController::class, 'index']);
         Route::get('/tickets/{id}', [TicketController::class, 'show']);
         Route::post('/tickets', [TicketController::class, 'store']);

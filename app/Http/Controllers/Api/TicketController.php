@@ -17,35 +17,32 @@ class TicketController extends Controller
 
     public function index()
     {
-        return response()->json($this->service->all());
+        return response()->json(['success' => true, 'data' => $this->service->all()]);
     }
 
     public function show($id)
     {
-        return response()->json($this->service->find($id));
+        return response()->json(['success' => true, 'data' => $this->service->find($id)]);
     }
 
     public function store(Request $request)
     {
-        return response()->json(
-            $this->service->create($request->all()),
-            201
-        );
+        $ticket = $this->service->create($request->all());
+
+        return response()->json(['success' => true, 'data' => $ticket], 201);
     }
 
     public function update(Request $request, $id)
     {
-        return response()->json(
-            $this->service->update($id, $request->all())
-        );
+        $ticket = $this->service->update($id, $request->all());
+
+        return response()->json(['success' => true, 'data' => $ticket]);
     }
 
     public function destroy($id)
     {
         $this->service->delete($id);
 
-        return response()->json([
-            'success' => true
-        ]);
+        return response()->json(['success' => true], 204);
     }
 }

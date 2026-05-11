@@ -3,39 +3,53 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Services\AuthService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    protected $service;
+
+    public function __construct(AuthService $service)
+    {
+        $this->service = $service;
+    }
+
     public function register(Request $request)
     {
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password)
-        ]);
+        $result = $this->service->register($request->all());
 
         return response()->json([
             'success' => true,
-            'data' => $user
+            'data' => $result
         ], 201);
     }
 
     public function login(Request $request)
     {
-        $user = User::where('email', $request->email)->first();
+        $result = $this->service->login($request->all());
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$result) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid credentials'
+                'error' => ['message' => 'Invalid credentials']
             ], 401);
         }
 
         return response()->json([
-            'token' => $user->createToken('api-token')->plainTextToken
-        ]);
+            'success' => true,
+            'data' => $result
+        ], 200);
+    }
+
+    public function logout(Request $request)
+    {
+        $ok = $this->service->logout($request->user());
+
+        if ($ok) {
+            return response()->json(['success' => true, 'data' => ['message' => 'Logged out']]);
+        }
+
+        return response()->json(['success' => false, 'error' => ['message' => 'Not authenticated']], 401);
     }
 }
