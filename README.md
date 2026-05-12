@@ -1,42 +1,33 @@
-**TicketApp — API REST con Laravel**
+# TicketApp
 
-Proyecto backend desarrollado en PHP (Laravel) para gestionar tickets, asignaciones de dispositivos y reportes de incidentes. El proyecto está preparado para ejecutarse con Docker y cuenta con integraciones para Sentry y Webhooks de Discord.
+API REST construida con Laravel para la gestión de tickets e inventario/ asignación de dispositivos.
 
-**Requisitos**:
+## Descripción
+
+TicketApp es un backend Laravel que permite:
+- registrar y autenticar usuarios con Laravel Sanctum
+- crear, listar, ver, actualizar y eliminar tickets
+- asignar dispositivos a tickets o usuarios
+- proteger todos los endpoints autenticados
+- manejar errores con respuestas JSON consistentes
+- enviar alertas a Discord y reportes a Sentry
+
+## Requisitos
+
 - PHP 8.0+
 - Composer
-- Docker y Docker Compose (para la instalación recomendada)
+- Docker y Docker Compose (recomendado)
+- Node.js / npm (solo si se usan assets front-end)
 
-**Contenido**
-- **Instalación (Docker - recomendada)**
-- **Instalación (Local)**
-- **Variables de entorno**
+## Estructura principal
 
-**Autenticación (Tokens / Sanctum)**
+- `app/Http/Controllers/Api` - controladores de API
+- `app/Services` - lógica de negocio
+- `app/Models` - modelos Eloquent
+- `routes/api.php` - rutas de API
+- `app/Exceptions/Handler.php` - manejo global de excepciones
 
-Este proyecto usa Laravel Sanctum para autenticación por tokens. Pasos importantes después de clonar e instalar dependencias:
-
-```bash
-composer install
-php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
-php artisan migrate --seed
-```
-
-Para obtener un token, use los endpoints `POST /api/register` o `POST /api/login`. Incluya el token en requests autenticados con el header `Authorization: Bearer <token>`.
-
-**Logout**
-
-Endpoint: `POST /api/logout` (autenticado)
-
-Ejemplo curl:
-
-```bash
-curl -X POST http://localhost:8000/api/logout \
-	-H "Authorization: Bearer <token>" \
-	-H "Accept: application/json"
-```
-
-El endpoint revoca el token actual del usuario.
+## Instalación con Docker (recomendada)
 
 1. Clonar el repositorio:
 
@@ -45,29 +36,27 @@ git clone <repo-url> ticketapp
 cd ticketapp
 ```
 
-2. Levantar la aplicación con Docker Compose:
+2. Levantar contenedores:
 
 ```bash
-docker-compose up --build -d
+docker compose up -d --build
 ```
 
-3. Ejecutar migraciones y seeders dentro del contenedor de aplicación:
+3. Generar la llave de la app:
 
 ```bash
-docker-compose exec app php artisan migrate --seed --force
+docker compose exec app php artisan key:generate
 ```
 
-4. Generar llave de aplicación (si no se creó automáticamente):
+4. Ejecutar migraciones y seeders:
 
 ```bash
-docker-compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed --force
 ```
 
-La API quedará disponible según la configuración de `docker-compose.yml` (por defecto `http://localhost:8000`).
+5. Asegurarse de tener variables de entorno configuradas en `.env`.
 
----
-
-**Instalación (Local - desarrollo)**
+## Instalación local
 
 1. Clonar y entrar al proyecto:
 
@@ -79,24 +68,19 @@ cd ticketapp
 2. Instalar dependencias PHP:
 
 ```bash
-composer install --no-interaction --prefer-dist
+composer install
 ```
 
-3. Instalar dependencias Node (si usa assets):
-
-```bash
-npm install
-npm run build
-```
-
-4. Copiar el archivo de entorno y configurar variables:
+3. Copiar `.env` y generar llave:
 
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
-5. Configurar la conexión a base de datos según `DB_CONNECTION` (el proyecto está pensado para `sqlsrv` pero puede usarse `sqlite` para pruebas locales). Luego ejecutar migraciones:
+4. Configurar la base de datos en `.env`.
+
+5. Ejecutar migraciones y seeders:
 
 ```bash
 php artisan migrate --seed
@@ -108,217 +92,247 @@ php artisan migrate --seed
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
----
+## Variables de entorno importantes
 
-**Variables de entorno relevantes**
+- `APP_NAME`
+- `APP_ENV`
+- `APP_KEY`
+- `APP_URL`
+- `DB_CONNECTION`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_DATABASE`
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `DISCORD_WEBHOOK_URL`
+- `SENTRY_LARAVEL_DSN`
+- `SANCTUM_STATEFUL_DOMAINS`
+- `SESSION_DOMAIN`
 
-- `APP_ENV` — entorno (local, production)
-- `APP_KEY` — llave de la aplicación
-- `DB_CONNECTION` — `sqlsrv` / `mysql` / `sqlite`
-- `DB_HOST` `DB_PORT` `DB_DATABASE` `DB_USERNAME` `DB_PASSWORD`
-- `SENTRY_DSN` — DSN de Sentry (opcional pero requerido para monitoreo)
-- `DISCORD_WEBHOOK_URL` — Webhook de Discord para notificaciones
-- `SANCTUM_STATEFUL_DOMAINS` / `SESSION_DOMAIN` — configuración de Sanctum si se usa
+## Autenticación
 
-Colocar las variables en `.env` o usar Docker Secrets según su política de despliegue.
+TicketApp utiliza Laravel Sanctum para autenticación con tokens.
 
----
+### Endpoints públicos
 
-**Comandos útiles**
+- `POST /api/register` - registro de usuario
+- `POST /api/login` - inicio de sesión
 
-- Instalar dependencias: `composer install`
-- Generar key: `php artisan key:generate`
-- Ejecutar migraciones: `php artisan migrate --seed`
-- Ejecutar tests: `php artisan test` o `vendor/bin/phpunit`
-- Levantar servidor local: `php artisan serve`
-- Construir assets: `npm run build`
+### Endpoints protegidos
 
----
+- `POST /api/logout`
+- `GET /api/tickets`
+- `GET /api/tickets/{id}`
+- `POST /api/tickets`
+- `PUT /api/tickets/{id}`
+- `DELETE /api/tickets/{id}`
+- `GET /api/devices`
+- `POST /api/devices/assign`
 
-**Integraciones**
+### Uso del token
 
-Sentry: configurar `SENTRY_DSN` en `.env`. El proyecto está preparado para capturar excepciones y enviarlas a Sentry.
+Enviar en cada request protegido:
 
-Discord: configurar `DISCORD_WEBHOOK_URL`. El sistema envía alertas automáticas para excepciones críticas y eventos de rate limit.
-
----
-
-**Pruebas y validaciones**
-
-Ejecutar la batería de pruebas:
-
-```bash
-php artisan test
+```http
+Authorization: Bearer <token>
+Accept: application/json
 ```
 
-Para validar que las notificaciones a Discord y la integración con Sentry funcionan, establecer las variables en el entorno y provocar un error controlado (o revisar los logs de error) según la documentación interna.
+## API principal
 
-**Probar notificaciones (rápido)**
+### Registrar usuario
 
-Si `APP_DEBUG=true` puede enviar un test a Discord/Sentry con el endpoint de test:
+`POST /api/register`
+
+Payload:
+
+```json
+{
+  "name": "Usuario Ejemplo",
+  "email": "usuario@ejemplo.com",
+  "password": "secret123",
+  "password_confirmation": "secret123"
+}
+```
+
+### Login
+
+`POST /api/login`
+
+Payload:
+
+```json
+{
+  "email": "usuario@ejemplo.com",
+  "password": "secret123"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "token": "<personal-access-token>"
+  }
+}
+```
+
+### Logout
+
+`POST /api/logout`
+
+Debe enviarse con autorización. Revoca el token actual.
+
+### Tickets
+
+Todos los tickets están asociados al usuario autenticado.
+
+#### Listar tickets
+
+`GET /api/tickets`
+
+- Devuelve solo los tickets del usuario actual.
+- No muestra tickets de otros usuarios.
+
+#### Ver ticket
+
+`GET /api/tickets/{id}`
+
+- Devuelve el ticket solo si pertenece al usuario autenticado.
+- Si el ticket existe pero no es del usuario, retorna error `403`.
+- Si no existe, retorna error `404`.
+
+#### Crear ticket
+
+`POST /api/tickets`
+
+Payload:
+
+```json
+{
+  "title": "Falla de impresora",
+  "description": "La impresora no responde",
+  "device_id": 2,
+  "priority": "high"
+}
+```
+
+- El campo `user_id` se asigna automáticamente desde el token.
+- No es posible crear tickets en nombre de otro usuario.
+
+#### Actualizar ticket
+
+`PUT /api/tickets/{id}`
+
+Campos válidos:
+- `title`
+- `description`
+- `status`
+- `assigned_to`
+
+- Solo se puede actualizar si el ticket pertenece al usuario autenticado.
+- Si no está autorizado, retorna `403`.
+
+#### Eliminar ticket
+
+`DELETE /api/tickets/{id}`
+
+- Solo el dueño del ticket puede eliminarlo.
+- Si intenta borrar un ticket de otro usuario, retorna `403`.
+
+### Dispositivos
+
+#### Listar dispositivos
+
+`GET /api/devices`
+
+#### Asignar dispositivo
+
+`POST /api/devices/assign`
+
+Payload ejemplo:
+
+```json
+{
+  "device_id": 1,
+  "assigned_to": 2,
+  "ticket_id": 5
+}
+```
+
+- Crea una asignación de dispositivo según la lógica del servicio.
+- El endpoint requiere autenticación.
+
+## Manejo de errores
+
+Las respuestas de error siempre devuelven JSON con estructura clara:
+
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Mensaje descriptivo",
+    "errors": { /* opcional, validación */ }
+  }
+}
+```
+
+### Códigos principales
+
+- `401 Unauthorized` - token faltante o inválido
+- `403 Forbidden` - usuario autenticado no autorizado para el recurso
+- `404 Not Found` - recurso no existe
+- `422 Unprocessable Entity` - validación de datos falló
+- `429 Too Many Requests` - límite de tasa excedido
+- `500 Internal Server Error` - error del servidor
+
+## Seguridad y permisos
+
+- Solo el usuario autenticado puede acceder y administrar sus propios tickets.
+- Intentos de acceso a tickets de otros usuarios reciben `403`.
+- Los registros de usuario y login se mantienen públicos para obtener token.
+
+## Notificaciones e integraciones
+
+### Discord
+
+- El proyecto puede enviar alertas a Discord vía `DISCORD_WEBHOOK_URL`.
+- Se notifican errores críticos y eventos de rate limit.
+
+### Sentry
+
+- Se envían excepciones a Sentry cuando `SENTRY_LARAVEL_DSN` está configurado.
+- Ideal para monitoreo de fallas en producción.
+
+## Comandos útiles
+
+```bash
+composer install
+php artisan key:generate
+php artisan migrate --seed
+php artisan test
+php artisan serve
+```
+
+## Debug de notificaciones
+
+Cuando `APP_DEBUG=true`, existe un endpoint de prueba:
+
+`POST /api/debug/notify`
+
+Ejemplo:
 
 ```bash
 curl -X POST http://localhost:8000/api/debug/notify \
-	-H "Content-Type: application/json" \
-	-d '{"message":"Prueba de notificación desde local"}'
+  -H "Content-Type: application/json" \
+  -d '{"message":"Prueba de alerta"}'
 ```
 
-La respuesta indicará si el envío a Discord y Sentry se intentó correctamente. Asegúrese de tener `DISCORD_WEBHOOK_URL` y `SENTRY_LARAVEL_DSN` configurados en `.env`.
+## Notas finales
 
-**Comando Artisan para ejecutar el flujo de integración**
-
-He incluido un comando Artisan que ejecuta localmente el flujo completo y puede usarse cuando el entorno tiene soporte de base de datos o dentro de Docker.
-
-```bash
-php artisan run:integration-flow
-```
-
-El comando intentará: registrar un usuario, crear un dispositivo, crear un ticket, asignar el dispositivo, revocar el token y enviar una notificación de prueba a Discord/Sentry. Si el entorno no tiene el driver de base de datos (por ejemplo `pdo_sqlite`) o Docker no está disponible, el comando fallará con un mensaje que describe la razón.
-
----
-
-**Postman / Colección**
-
-Agregar en el repositorio una colección Postman o exportación OpenAPI para facilitar pruebas de API. (Si desea, puedo generar la colección basada en los endpoints existentes.)
-
----
-
-**Contacto**
-
-Mantenga la rama `main` limpia y use ramas de características para cambios. Para asistencia adicional puedo preparar la colección Postman y los comandos de CI/CD.
-
----
-
-**API Endpoints**
-
-Contenido y ejemplos de uso para los endpoints públicos y autenticados. Todos los requests deben usar `Content-Type: application/json`.
-
-- **Autenticación**
-	- Método: `POST /api/register`
-		- Payload:
-
-```json
-{
-	"name": "Usuario Ejemplo",
-	"email": "usuario@ejemplo.com",
-	"password": "secret123",
-	"password_confirmation": "secret123"
-}
-```
-		- Respuesta (201):
-
-```json
-{
-	"data": {
-		"id": 1,
-		"name": "Usuario Ejemplo",
-		"email": "usuario@ejemplo.com",
-		"token": "<personal-access-token>"
-	}
-}
-```
-
-	- Método: `POST /api/login`
-		- Payload:
-
-```json
-{
-	"email": "usuario@ejemplo.com",
-	"password": "secret123"
-}
-```
-		- Respuesta (200):
-
-```json
-{
-	"data": {
-		"token": "<personal-access-token>"
-	}
-}
-```
-
-	- Autorización: incluir header `Authorization: Bearer <token>` en requests autenticados.
-
-- **Tickets** (autenticado)
-	- `GET /api/tickets` — Obtener lista de tickets
-		- Query params opcionales: `status`, `page`, `per_page`
-		- Respuesta (200): lista paginada de tickets.
-
-	- `GET /api/tickets/{id}` — Obtener ticket por id
-		- Respuesta (200): objeto ticket.
-
-	- `POST /api/tickets` — Crear ticket
-		- Payload ejemplo:
-
-```json
-{
-	"title": "Problema con laptop",
-	"description": "La batería no carga",
-	"device_id": 3,
-	"priority": "high"
-}
-```
-		- Respuesta (201): ticket creado.
-
-	- `PUT /api/tickets/{id}` — Actualizar ticket
-		- Payload ejemplo (parcial):
-
-```json
-{
-	"status": "closed",
-	"assigned_to": 5
-}
-```
-		- Respuesta (200): ticket actualizado.
-
-	- `DELETE /api/tickets/{id}` — Eliminar ticket
-		- Respuesta (204): sin contenido.
-
-- **Dispositivos**
-	- `GET /api/devices` — Listar dispositivos (autenticado)
-
-	- `POST /api/devices/assign` — Asignar dispositivo a usuario (autenticado)
-		- Payload:
-
-```json
-{
-	"device_id": 3,
-	"user_id": 10,
-	"assigned_at": "2026-05-10T12:00:00Z",
-	"notes": "Asignación temporal"
-}
-```
-		- Respuesta (201): objeto `device_assignment`.
-
----
-
-**Encabezados y Rate Limiting**
-
-- Todos los endpoints devuelven respuestas JSON estructuradas bajo la clave `data` o `error`.
-- Incluir `Accept: application/json` y `Content-Type: application/json` en requests.
-- Rate limiting: la API usa `throttle:api`. Si el límite se excede la respuesta será HTTP 429 con cabeceras `Retry-After`.
-
----
-
-**Ejemplos curl**
-
-- Registrar usuario:
-
-```bash
-curl -X POST http://localhost:8000/api/register \
-	-H "Content-Type: application/json" \
-	-d '{"name":"Usuario","email":"u@e.com","password":"secret","password_confirmation":"secret"}'
-```
-
-- Obtener tickets (ejemplo con token):
-
-```bash
-curl -X GET http://localhost:8000/api/tickets \
-	-H "Authorization: Bearer <token>" \
-	-H "Accept: application/json"
-```
-
----
-
-Si desea, genero automáticamente una colección Postman u OpenAPI basada en estos endpoints.
-
+- La API está diseñada para respuesta JSON consistente.
+- La lógica de negocio vive en `app/Services`.
+- Los endpoints protegidos usan `auth:sanctum`.
+- Los tickets pertenecen al usuario autenticado y no se puede sobrescribir `user_id` al crear tickets.
