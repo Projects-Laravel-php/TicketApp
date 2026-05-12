@@ -5,10 +5,12 @@ namespace App\Exceptions;
 use Throwable;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use App\Services\DiscordWebhookService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class Handler extends ExceptionHandler
@@ -32,6 +34,18 @@ class Handler extends ExceptionHandler
         });
     }
 
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => false,
+                'error' => ['message' => $exception->getMessage() ?: 'No estás autenticado'],
+            ], 401);
+        }
+
+        return parent::unauthenticated($request, $exception);
+    }
+
     public function render($request, Throwable $e)
     {
         // If request expects JSON or is under /api, return structured JSON errors
@@ -53,11 +67,25 @@ class Handler extends ExceptionHandler
                 ], 401);
             }
 
+            if ($e instanceof AuthorizationException) {
+                return response()->json([
+                    'success' => false,
+                    'error' => ['message' => $e->getMessage() ?: 'No estás autorizado']
+                ], 403);
+            }
+
             if ($e instanceof ModelNotFoundException || $e instanceof NotFoundHttpException) {
                 return response()->json([
                     'success' => false,
-                    'error' => ['message' => 'Resource not found']
+                    'error' => ['message' => $e->getMessage() ?: 'Resource not found']
                 ], 404);
+            }
+
+            if ($e instanceof HttpExceptionInterface) {
+                return response()->json([
+                    'success' => false,
+                    'error' => ['message' => $e->getMessage() ?: 'Error en la solicitud']
+                ], $e->getStatusCode());
             }
 
             if ($e instanceof ThrottleRequestsException) {

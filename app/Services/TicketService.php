@@ -3,19 +3,38 @@
 namespace App\Services;
 
 use App\Models\Ticket;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class TicketService
 {
-    public function all()
+    public function all($userId = null)
     {
-        return Ticket::with('user')->get();
+        $query = Ticket::with('user');
+
+        if ($userId !== null) {
+            $query->where('user_id', $userId);
+        }
+
+        return $query->get();
     }
 
-    public function find($id)
+    public function find($id, $userId = null)
     {
-        return Ticket::findOrFail($id);
+        $ticket = Ticket::with('user')->find($id);
+
+        if (! $ticket) {
+            throw (new ModelNotFoundException('Ticket no encontrado'))->setModel(Ticket::class);
+        }
+
+        if ($userId !== null && $ticket->user_id !== $userId) {
+            throw new AuthorizationException('No estás autorizado para ver este ticket.');
+        }
+
+        return $ticket;
     }
 
     public function create(array $data)
@@ -31,10 +50,13 @@ class TicketService
             throw new ValidationException($validator);
         }
 
+        unset($data['user_id']);
+        $data['user_id'] = Auth::id();
+
         return Ticket::create($data);
     }
 
-    public function update($id, array $data)
+    public function update($id, array $data, $userId = null)
     {
         $validator = Validator::make($data, [
             'title' => 'sometimes|string|max:255',
@@ -47,14 +69,16 @@ class TicketService
             throw new ValidationException($validator);
         }
 
-        $ticket = Ticket::findOrFail($id);
+        $ticket = $this->find($id, $userId);
         $ticket->update($data);
 
         return $ticket;
     }
 
-    public function delete($id)
+    public function delete($id, $userId = null)
     {
-        return Ticket::destroy($id);
+        $ticket = $this->find($id, $userId);
+
+        return $ticket->delete();
     }
 }
