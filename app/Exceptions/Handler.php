@@ -7,6 +7,7 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use App\Services\DiscordWebhookService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -18,18 +19,54 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
+            if ($e instanceof ThrottleRequestsException) {
+                return;
+            }
+
+            $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
+            $type = $e instanceof HttpExceptionInterface && $status >= 500 ? 'CRITICAL_FAILURE' : 'EXCEPTION';
+            $endpoint = app()->runningInConsole() ? 'console' : (request()?->method() . ' ' . request()?->path());
+            $user = auth()->user()?->id ? auth()->user()?->id . ' (' . auth()->user()?->email . ')' : 'guest';
+            $payload = [];
+
+            if (!app()->runningInConsole() && request()?->all()) {
+                $payload = request()->except(['password', 'password_confirmation', 'current_password']);
+            }
+
             try {
                 DiscordWebhookService::send([
-                    'type' => 'SERVER_ERROR',
+                    'type' => $type,
                     'message' => $e->getMessage(),
-                    'timestamp' => now()
+                    'exception' => get_class($e),
+                    'status' => $status,
+                    'endpoint' => $endpoint,
+                    'user' => $user,
+                    'payload' => $payload,
+                    'stacktrace' => $e->getTraceAsString(),
+                    'timestamp' => now()->toIso8601String(),
                 ]);
+
+                if (!app()->runningInConsole() && request()?->attributes) {
+                    request()->attributes->set('discord_exception_sent', true);
+                }
             } catch (\Throwable $ex) {
                 // Prevent cascading failures when Discord is down
             }
 
             if (app()->bound('sentry')) {
-                app('sentry')->captureException($e);
+                try {
+                    app('sentry')->captureException($e);
+                    Log::info('Sentry event sent for exception', [
+                        'exception' => get_class($e),
+                        'message' => $e->getMessage(),
+                        'status' => $status,
+                    ]);
+                } catch (\Throwable $sent) {
+                    Log::warning('Failed to send event to Sentry', [
+                        'exception' => get_class($sent),
+                        'message' => $sent->getMessage(),
+                    ]);
+                }
             }
         });
     }
@@ -89,16 +126,6 @@ class Handler extends ExceptionHandler
             }
 
             if ($e instanceof ThrottleRequestsException) {
-                try {
-                    DiscordWebhookService::send([
-                        'type' => 'RATE_LIMIT',
-                        'endpoint' => $request->path(),
-                        'ip' => $request->ip(),
-                        'timestamp' => now()
-                    ]);
-                } catch (\Throwable $ex) {
-                }
-
                 return response()->json([
                     'success' => false,
                     'error' => ['message' => $e->getMessage()]

@@ -17,9 +17,12 @@ class ApiRateLimitMiddleware
             try {
                 DiscordWebhookService::send([
                     'type' => 'RATE_LIMIT',
-                    'endpoint' => $request->path(),
+                    'message' => 'Rate limit reached',
+                    'endpoint' => $request->method() . ' ' . $request->path(),
+                    'user' => $request->user()?->id ? $request->user()?->id . ' (' . $request->user()?->email . ')' : 'guest',
                     'ip' => $request->ip(),
-                    'timestamp' => now(),
+                    'payload' => $request->except(['password', 'password_confirmation', 'current_password']),
+                    'timestamp' => now()->toIso8601String(),
                     'attempts' => $request->header('X-RateLimit-Remaining')
                 ]);
             } catch (\Throwable $e) {

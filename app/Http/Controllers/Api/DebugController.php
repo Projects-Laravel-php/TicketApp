@@ -15,13 +15,18 @@ class DebugController extends Controller
             return response()->json(['success' => false, 'error' => ['message' => 'Not allowed']], 403);
         }
 
-        $message = $request->input('message', 'Test notification from TicketApp');
+        $message = $request->input('message', 'Prueba de notificación desde TicketApp');
+        $user = auth()->user()?->id ? auth()->user()?->id . ' (' . auth()->user()?->email . ')' : 'guest';
+        $payload = $request->except(['password', 'password_confirmation', 'current_password']);
 
         // Send to Discord (no-op if not configured)
         $discordOk = DiscordWebhookService::send([
             'type' => 'DEBUG_TEST',
             'message' => $message,
-            'timestamp' => now()->toIso8601String()
+            'endpoint' => $request->method() . ' ' . $request->path(),
+            'user' => $user,
+            'payload' => $payload,
+            'timestamp' => now()->toIso8601String(),
         ]);
 
         // Send to Sentry if available
